@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Live Queue – QueueLess</title>
+<link rel="stylesheet" href="style.css" />
+<style>
+.page-hero {
+  background: linear-gradient(140deg, var(--b900) 0%, var(--b700) 100%);
+  padding: 2.5rem 1.5rem; position: relative; overflow: hidden;
+}
+.page-hero::before { content:''; position:absolute; right:-80px; top:-80px; width:280px; height:280px; background:rgba(255,255,255,0.05); border-radius:50%; pointer-events:none; }
+
+.serve-row {
+  display: flex; align-items: flex-end; justify-content: space-between;
+  flex-wrap: wrap; gap: 1.5rem; position: relative;
+}
+.serve-label { font-size:11px; color:rgba(255,255,255,0.5); text-transform:uppercase; letter-spacing:0.12em; margin-bottom:4px; }
+.serve-num { font-family:var(--fd); font-size:4.5rem; font-weight:800; color:#fff; line-height:1; }
+.serve-num sup { font-size:1.8rem; color:rgba(255,255,255,0.3); vertical-align:super; }
+
+.serve-meta { display:flex; gap:10px; flex-wrap:wrap; }
+.serve-badge {
+  background: rgba(255,255,255,0.12); border: 0.5px solid rgba(255,255,255,0.2);
+  border-radius: 12px; padding: 10px 18px; text-align: center; min-width: 90px;
+}
+.sb-top { font-size:10px; color:rgba(255,255,255,0.45); text-transform:uppercase; letter-spacing:0.1em; }
+.sb-val { font-family:var(--fd); font-size:1.4rem; font-weight:800; color:#fff; margin-top:2px; }
+
+/* Live indicator */
+.live-dot {
+  display:inline-flex; align-items:center; gap:6px;
+  background:rgba(99,153,34,0.2); border:0.5px solid rgba(99,153,34,0.4);
+  border-radius:100px; padding:5px 12px; font-size:11px; font-weight:500;
+  color:#9ED655; margin-top:1rem; position:relative;
+}
+.live-dot::before { content:''; width:6px; height:6px; background:#9ED655; border-radius:50%; animation:pulse-g 1.2s ease-in-out infinite; }
+
+/* Queue layout */
+.queue-layout {
+  display: grid; grid-template-columns: 1fr 320px;
+  gap: 1.5rem; padding: 2.5rem 0;
+}
+@media (max-width:780px) { .queue-layout { grid-template-columns:1fr; } }
+
+/* Queue list */
+.queue-list-wrap { }
+.q-list-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:1rem; }
+.q-list-title { font-family:var(--fd); font-size:1.3rem; font-weight:800; color:var(--b900); }
+
+.q-list { display:flex; flex-direction:column; gap:6px; }
+.empty-q { text-align:center; padding:4rem 1rem; color:var(--g400); }
+.empty-q-icon { font-size:2.5rem; margin-bottom:0.75rem; }
+.empty-q h3 { font-family:var(--fd); font-size:1rem; color:var(--g600); margin-bottom:4px; }
+
+/* Queue row with position number */
+.q-item {
+  display:flex; align-items:center; gap:14px;
+  background:var(--white); border:0.5px solid var(--g200);
+  border-radius:var(--radius-md); padding:14px 16px;
+  animation:fade-up 0.3s ease both; transition:all 0.3s;
+}
+.q-item.current {
+  background:var(--b50); border-color:var(--b300); border-width:1.5px;
+  box-shadow: 0 4px 16px rgba(12,68,124,0.1);
+}
+.q-item.current .q-badge { background:var(--b700); color:#fff; }
+.q-badge {
+  width:42px; height:42px; flex-shrink:0;
+  background:var(--g100); border-radius:11px;
+  display:flex; align-items:center; justify-content:center;
+  font-family:var(--fd); font-size:13px; font-weight:800; color:var(--g600);
+}
+.q-name  { font-size:14px; font-weight:500; color:var(--b900); }
+.q-meta  { font-size:11px; color:var(--g400); margin-top:2px; }
+.q-right { display:flex; flex-direction:column; align-items:flex-end; gap:4px; margin-left:auto; flex-shrink:0; }
+
+/* Side panel */
+.side-panel { display:flex; flex-direction:column; gap:1.25rem; }
+.panel-card { background:var(--white); border:0.5px solid var(--g200); border-radius:var(--radius-lg); padding:1.25rem; box-shadow:var(--shadow-card); }
+.panel-title { font-size:11px; font-weight:500; color:var(--g400); text-transform:uppercase; letter-spacing:0.1em; margin-bottom:1rem; }
+
+/* Wait chart */
+.wait-list { display:flex; flex-direction:column; gap:8px; }
+.wait-item { display:flex; align-items:center; gap:10px; font-size:13px; }
+.wait-bar-track { flex:1; height:5px; background:var(--g100); border-radius:100px; overflow:hidden; }
+.wait-bar-fill  { height:100%; background:linear-gradient(90deg,var(--b500),var(--b300)); border-radius:100px; }
+.wait-num { font-family:var(--fd); font-size:12px; font-weight:700; color:var(--b700); min-width:36px; text-align:right; }
+
+/* Auto-refresh notice */
+.refresh-bar {
+  display:flex; align-items:center; justify-content:space-between;
+  padding:0.75rem 1rem; background:var(--b50); border-radius:var(--radius-sm);
+  font-size:12px; color:var(--b700); margin-top:1rem;
+}
+.refresh-bar button { font-size:12px; font-weight:500; color:var(--b500); background:none; border:none; cursor:pointer; }
+.refresh-bar button:hover { color:var(--b700); }
+</style>
+</head>
+<body>
+
+<nav class="topnav">
+  <a href="index.html" class="nav-logo">Queue<em>Less</em></a>
+  <div class="nav-links">
+    <a href="index.html" class="nav-link">Home</a>
+    <a href="queue.html" class="nav-link active">Live Queue</a>
+    <a href="admin.html" class="nav-link">Admin</a>
+  </div>
+  <a href="user.html" class="nav-cta">Join Queue →</a>
+</nav>
+
+<div class="page-hero">
+  <div class="container">
+    <div class="serve-row">
+      <div>
+        <div class="serve-label">Now Serving</div>
+        <div class="serve-num"><sup>#</sup><span id="serve-num">—</span></div>
+        <div class="live-dot">Live · auto-refreshing</div>
+      </div>
+      <div class="serve-meta">
+        <div class="serve-badge">
+          <div class="sb-top">Waiting</div>
+          <div class="sb-val" id="sb-waiting">0</div>
+        </div>
+        <div class="serve-badge">
+          <div class="sb-top">Avg Wait</div>
+          <div class="sb-val" id="sb-avgwait">0m</div>
+        </div>
+        <div class="serve-badge">
+          <div class="sb-top">Served Today</div>
+          <div class="sb-val" id="sb-served">0</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="container">
+  <div class="queue-layout">
+
+    <!-- MAIN: Queue list -->
+    <div class="queue-list-wrap">
+      <div class="q-list-header">
+        <div class="q-list-title">Queue</div>
+        <span class="pill pill-blue" id="q-count-pill">0 people</span>
+      </div>
+      <div class="q-list" id="q-list">
+        <div style="text-align:center;padding:3rem;color:var(--g400);">Loading…</div>
+      </div>
+      <div class="refresh-bar no-print">
+        <span>Updates every 5 seconds</span>
+        <button onclick="refresh()">Refresh now</button>
+      </div>
+    </div>
+
+    <!-- SIDE PANEL -->
+    <div class="side-panel">
+
+      <div class="panel-card">
+        <div class="panel-title">Wait times</div>
+        <div class="wait-list" id="wait-list">
+          <div style="font-size:13px;color:var(--g400);">No tokens in queue</div>
+        </div>
+      </div>
+
+      <div class="panel-card">
+        <div class="panel-title">Your token</div>
+        <div id="my-token-panel">
+          <div style="font-size:13px;color:var(--g400);line-height:1.6;">
+            You haven't joined the queue yet.
+          </div>
+          <a href="user.html" class="btn btn-primary" style="margin-top:1rem;display:inline-flex;font-size:13px;padding:10px 18px;">Get a token →</a>
+        </div>
+      </div>
+
+      <div class="panel-card" style="text-align:center;">
+        <div class="panel-title">Join queue</div>
+        <p style="font-size:13px;margin-bottom:1rem;">Get your token and track your position from any device.</p>
+        <a href="user.html" class="btn btn-primary btn-sm">Join Queue →</a>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<footer>
+  <div class="footer-inner">
+    <div><div class="footer-brand">Queue<em>Less</em></div><div class="footer-tagline">Skip the line, not your turn</div></div>
+    <div class="footer-links">
+      <a href="index.html" class="footer-link">Home</a>
+      <a href="user.html" class="footer-link">Join Queue</a>
+      <a href="queue.html" class="footer-link">Live Queue</a>
+      <a href="admin.html" class="footer-link">Admin</a>
+    </div>
+  </div>
+  <div class="footer-bottom">© 2025 QueueLess. All rights reserved.</div>
+</footer>
+
+<script src="state.js"></script>
+<script>
+let myToken = null;
+try { const t = sessionStorage.getItem('ql_myToken'); if(t) myToken = parseInt(t); } catch(e) {}
+
+function refresh() {
+  const s = getState();
+
+  document.getElementById('serve-num').textContent  = s.current || '—';
+  document.getElementById('sb-waiting').textContent = s.queue.length;
+  document.getElementById('sb-avgwait').textContent = Math.max(0, s.queue.length * AVG_MINS) + 'm';
+  document.getElementById('sb-served').textContent  = s.served;
+
+  const pill = document.getElementById('q-count-pill');
+  pill.textContent = s.queue.length + ' ' + (s.queue.length === 1 ? 'person' : 'people');
+
+  // Queue list
+  const el = document.getElementById('q-list');
+  if (!s.queue.length) {
+    el.innerHTML = `<div class="empty-q"><div class="empty-q-icon">🎉</div><h3>Queue is clear!</h3><p style="font-size:13px;">No one is waiting right now.</p></div>`;
+  } else {
+    el.innerHTML = s.queue.map((item, i) => {
+      const cur  = item.token === s.current;
+      const wait = i * AVG_MINS;
+      const mine = item.token === myToken;
+      return `<div class="q-item ${cur ? 'current' : ''}">
+        <div class="q-badge">#${item.token}</div>
+        <div style="flex:1;">
+          <div class="q-name">${mine ? 'You' : item.name}${mine ? ' <span class="pill pill-blue" style="font-size:10px;padding:2px 8px;margin-left:4px;">Your token</span>' : ''}</div>
+          <div class="q-meta">Joined ${item.time} · ~${wait} min wait</div>
+        </div>
+        <div class="q-right">
+          <span class="tag ${cur ? 'tag-serving' : 'tag-waiting'}">${cur ? 'Serving now' : 'Waiting'}</span>
+          ${i > 0 ? `<span style="font-size:11px;color:var(--g400);">~${wait}m</span>` : ''}
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  // Wait times chart
+  const wl = document.getElementById('wait-list');
+  if (!s.queue.length) {
+    wl.innerHTML = '<div style="font-size:13px;color:var(--g400);">No tokens in queue</div>';
+  } else {
+    const max = (s.queue.length - 1) * AVG_MINS || 1;
+    wl.innerHTML = s.queue.slice(0, 6).map((item, i) => {
+      const w = i * AVG_MINS;
+      const pct = max > 0 ? Math.round((w / max) * 100) : 5;
+      return `<div class="wait-item">
+        <span style="font-size:12px;color:var(--g600);min-width:28px;">#${item.token}</span>
+        <div class="wait-bar-track"><div class="wait-bar-fill" style="width:${Math.max(5,pct)}%"></div></div>
+        <span class="wait-num">${w}m</span>
+      </div>`;
+    }).join('') + (s.queue.length > 6 ? `<div style="font-size:11px;color:var(--g400);margin-top:4px;">+${s.queue.length-6} more</div>` : '');
+  }
+
+  // My token panel
+  const myPanel = document.getElementById('my-token-panel');
+  if (myToken) {
+    const idx = s.queue.findIndex(q => q.token === myToken);
+    if (idx === -1) {
+      myPanel.innerHTML = `<div class="pill pill-green" style="margin-bottom:0.75rem;"><span class="dot dot-green"></span><span>Served ✓</span></div><div style="font-size:13px;color:var(--g600);">Token #${myToken} has been served.</div>`;
+    } else {
+      const pos  = idx + 1;
+      const wait = Math.max(0, idx * AVG_MINS);
+      const cur  = s.current === myToken;
+      myPanel.innerHTML = `
+        <div class="pill ${cur ? 'pill-green' : 'pill-amber'}" style="margin-bottom:0.75rem;">
+          <span class="dot ${cur ? 'dot-green' : 'dot-amber'}"></span>
+          <span>${cur ? 'Now Serving You!' : 'Waiting · Pos ' + pos}</span>
+        </div>
+        <div style="font-size:2rem;font-family:var(--fd);font-weight:800;color:var(--b700);margin-bottom:4px;">#${myToken}</div>
+        <div style="font-size:13px;color:var(--g600);">Est. wait: ~${wait} min</div>
+        <a href="user.html" style="display:inline-flex;margin-top:0.75rem;font-size:12px;color:var(--b500);">View ticket →</a>`;
+    }
+  }
+}
+
+refresh();
+onStateChange(() => refresh());
+setInterval(refresh, 5000);
+</script>
+</body>
+</html>

@@ -1,0 +1,439 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Join Queue – QueueLess</title>
+<link rel="stylesheet" href="style.css" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<style>
+.page-hero {
+  background: linear-gradient(140deg, var(--b900) 0%, var(--b700) 100%);
+  padding: 3rem 1.5rem 2rem; text-align: center; position: relative; overflow: hidden;
+}
+.page-hero::before { content:''; position:absolute; right:-60px; top:-60px; width:220px; height:220px; background:rgba(255,255,255,0.05); border-radius:50%; pointer-events:none; }
+.page-hero::after  { content:''; position:absolute; left:-40px; bottom:-40px; width:140px; height:140px; background:rgba(255,255,255,0.04); border-radius:50%; pointer-events:none; }
+.page-hero h1 { color:#fff; font-size:2rem; margin-bottom:0.5rem; position:relative; }
+.page-hero p  { color:rgba(255,255,255,0.55); font-size:14px; position:relative; }
+
+.main-grid {
+  display: grid; grid-template-columns: 1fr 1fr;
+  gap: 1.5rem; padding: 2.5rem 0;
+}
+@media (max-width:700px) { .main-grid { grid-template-columns:1fr; } }
+
+/* Token hero card */
+.token-card {
+  background: linear-gradient(140deg, var(--b900) 0%, var(--b700) 55%, var(--b500) 100%);
+  border-radius: var(--radius-xl); padding: 2rem;
+  position: relative; overflow: hidden; grid-row: span 2;
+  display: flex; flex-direction: column;
+}
+.token-card::before { content:''; position:absolute; right:-50px; top:-50px; width:200px; height:200px; background:rgba(255,255,255,0.05); border-radius:50%; }
+.token-card::after  { content:''; position:absolute; right:30px; bottom:-60px; width:140px; height:140px; background:rgba(255,255,255,0.04); border-radius:50%; }
+
+.gen-btn {
+  width:100%; font-family:var(--fb); font-size:16px; font-weight:600;
+  padding:15px; background:var(--white); color:var(--b700);
+  border:none; border-radius:13px; cursor:pointer; transition:all 0.2s;
+  position:relative; z-index:1;
+}
+.gen-btn:hover { background:var(--b50); transform:translateY(-1px); }
+.gen-btn:disabled { opacity:0.5; cursor:not-allowed; transform:none; }
+
+.token-issued { display:none; position:relative; z-index:1; }
+.token-issued.show { display:block; }
+
+.token-top {
+  display: flex; align-items: center; justify-content: space-between;
+  padding-top: 1.75rem; gap: 1rem;
+}
+.tok-label { font-size:10px; color:rgba(255,255,255,0.45); text-transform:uppercase; letter-spacing:0.14em; margin-bottom:4px; }
+.tok-big { font-family:var(--fd); font-size:5.5rem; font-weight:800; color:#fff; line-height:1; }
+.tok-big sup { font-size:2rem; color:rgba(255,255,255,0.3); vertical-align:super; }
+
+/* QR on card */
+.tok-qr {
+  width:96px; height:96px; flex-shrink:0;
+  background:var(--white); border-radius:13px; padding:5px;
+  cursor:pointer; transition:transform 0.2s;
+  box-shadow:0 0 0 3px rgba(255,255,255,0.12);
+  display:flex; align-items:center; justify-content:center;
+}
+.tok-qr:hover { transform:scale(1.06); }
+.tok-qr canvas, .tok-qr img { width:86px !important; height:86px !important; }
+.tok-qr-hint { font-size:10px; color:rgba(255,255,255,0.4); text-align:center; margin-top:5px; }
+
+.token-joined { font-size:12px; color:rgba(255,255,255,0.4); margin-top:1.25rem; padding-top:1.25rem; border-top:0.5px solid rgba(255,255,255,0.1); }
+
+/* Info cards */
+.info-2col { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+.info-cell { background:var(--white); border:0.5px solid var(--g200); border-radius:var(--radius-md); padding:1rem; text-align:center; }
+.info-cell-lbl { font-size:10px; color:var(--g400); text-transform:uppercase; letter-spacing:0.1em; margin-bottom:6px; }
+.info-cell-val { font-family:var(--fd); font-size:2rem; font-weight:800; color:var(--b700); line-height:1; }
+.info-cell-sub { font-size:11px; color:var(--g400); margin-top:4px; }
+
+/* Position bar */
+.pos-bar-card { background:var(--white); border:0.5px solid var(--g200); border-radius:var(--radius-md); padding:1.1rem 1.25rem; }
+.pos-bar-top { display:flex; justify-content:space-between; font-size:12px; color:var(--g400); margin-bottom:9px; }
+
+/* Ticket preview card */
+.ticket-prompt {
+  background: var(--b50); border: 0.5px solid var(--b100);
+  border-radius: var(--radius-md); padding: 1.1rem 1.25rem;
+  display: flex; align-items: center; gap: 14px; cursor: pointer;
+  transition: all 0.2s;
+}
+.ticket-prompt:hover { background: var(--b100); }
+.ticket-prompt-icon {
+  width: 44px; height: 44px; background: var(--b700); border-radius: 10px;
+  display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+}
+.ticket-prompt-icon svg { width:20px; height:20px; stroke:#fff; fill:none; stroke-width:2; stroke-linecap:round; stroke-linejoin:round; }
+.ticket-prompt h4 { font-size:14px; font-weight:600; color:var(--b900); margin-bottom:2px; }
+.ticket-prompt p  { font-size:12px; color:var(--g600); }
+.ticket-prompt-arrow { margin-left:auto; font-size:18px; color:var(--b300); }
+
+/* ── TICKET MODAL ── */
+.ticket {
+  background:var(--white); border-radius:var(--radius-xl); max-width:360px; width:100%;
+  overflow:hidden; box-shadow:var(--shadow-lg); animation:fade-up 0.25s ease;
+}
+.tkt-header {
+  background:linear-gradient(140deg,var(--b900) 0%,var(--b700) 55%,var(--b500) 100%);
+  padding:1.75rem 2rem; text-align:center; position:relative; overflow:hidden;
+}
+.tkt-header::before { content:''; position:absolute; right:-50px; top:-50px; width:180px; height:180px; background:rgba(255,255,255,0.05); border-radius:50%; }
+.tkt-brand { font-family:var(--fd); font-size:12px; font-weight:800; color:rgba(255,255,255,0.45); letter-spacing:0.07em; text-transform:uppercase; margin-bottom:0.5rem; }
+.tkt-brand strong { color:rgba(255,255,255,0.85); }
+.tkt-big { font-family:var(--fd); font-size:5rem; font-weight:800; color:#fff; line-height:1; position:relative; z-index:1; }
+.tkt-big sup { font-size:1.9rem; color:rgba(255,255,255,0.3); vertical-align:super; }
+.tkt-issued-lbl { font-size:11px; color:rgba(255,255,255,0.38); margin-top:0.4rem; position:relative; z-index:1; }
+.perf { margin:0 1.5rem; border-top:2px dashed var(--g200); position:relative; }
+.perf::before,.perf::after { content:''; position:absolute; width:22px; height:22px; background:var(--g50); border-radius:50%; top:50%; transform:translateY(-50%); }
+.perf::before { left:-30px; }
+.perf::after  { right:-30px; }
+.tkt-body { padding:1.5rem 2rem; }
+.tkt-qr-wrap { width:160px; height:160px; margin:0 auto 1rem; border:1.5px solid var(--b100); border-radius:var(--radius-md); display:flex; align-items:center; justify-content:center; overflow:hidden; background:var(--white); }
+.tkt-qr-wrap canvas,.tkt-qr-wrap img { width:152px !important; height:152px !important; }
+.tkt-scan-lbl { text-align:center; font-size:11px; color:var(--g400); margin-bottom:1.25rem; letter-spacing:0.03em; }
+.tkt-rows { display:flex; flex-direction:column; gap:9px; margin-bottom:1rem; }
+.tkt-row { display:flex; justify-content:space-between; font-size:13px; }
+.tkt-k { color:var(--g400); }
+.tkt-v { font-weight:500; color:var(--b900); }
+.tkt-v.hi { font-family:var(--fd); font-size:15px; font-weight:800; color:var(--b700); }
+.tkt-foot { font-size:10px; color:var(--g400); text-align:center; padding-top:1rem; border-top:0.5px solid var(--g200); letter-spacing:0.03em; }
+.tkt-actions { display:flex; gap:8px; margin-top:1.25rem; }
+.tkt-btn { flex:1; padding:11px; font-family:var(--fb); font-size:13px; font-weight:500; border-radius:10px; cursor:pointer; }
+.tkt-btn-out { border:0.5px solid var(--g200); background:var(--white); color:var(--b700); transition:background 0.18s; }
+.tkt-btn-out:hover { background:var(--b50); }
+.tkt-btn-sol { border:none; background:var(--b700); color:var(--white); transition:background 0.18s; }
+.tkt-btn-sol:hover { background:var(--b900); }
+
+.empty-token-state { text-align:center; padding:2rem; color:var(--g400); font-size:14px; }
+.empty-token-state h3 { font-size:1rem; color:var(--g600); margin-bottom:8px; }
+
+@media print {
+  body > *:not(#ticket-modal) { display:none !important; }
+  #ticket-modal { position:fixed !important; inset:0 !important; display:flex !important; background:none !important; }
+  .ticket { box-shadow:none; border-radius:0; max-width:100%; width:100%; }
+  .tkt-actions, .modal-close { display:none !important; }
+}
+</style>
+</head>
+<body>
+
+<nav class="topnav">
+  <a href="index.html" class="nav-logo">Queue<em>Less</em></a>
+  <div class="nav-links">
+    <a href="index.html" class="nav-link">Home</a>
+    <a href="queue.html" class="nav-link">Live Queue</a>
+    <a href="admin.html" class="nav-link">Admin</a>
+  </div>
+  <a href="queue.html" class="nav-cta">Live Queue →</a>
+</nav>
+
+<div class="page-hero">
+  <h1>Join the Queue</h1>
+  <p>Generate your token and track your position in real time</p>
+</div>
+
+<div class="container">
+  <div class="main-grid">
+
+    <!-- LEFT: Token card -->
+    <div class="token-card">
+      <button class="gen-btn" id="gen-btn" onclick="generateToken()">+ Generate My Token</button>
+
+      <div class="token-issued" id="token-issued">
+        <div class="token-top">
+          <div>
+            <div class="tok-label">Your token number</div>
+            <div class="tok-big"><sup>#</sup><span id="tok-num">0</span></div>
+          </div>
+          <div>
+            <div class="tok-qr" id="tok-qr-box" onclick="openTicket()" title="Tap to print ticket"></div>
+            <div class="tok-qr-hint">Tap → print ticket</div>
+          </div>
+        </div>
+        <div class="token-joined">Joined at <span id="tok-time">—</span> · Token valid for this session</div>
+      </div>
+
+      <div style="flex:1;"></div>
+
+      <div id="no-token-msg" style="margin-top:2rem;position:relative;z-index:1;">
+        <div style="font-size:13px;color:rgba(255,255,255,0.35);line-height:1.6;">
+          Tap the button above to get your unique queue token with QR code. No sign-up required.
+        </div>
+      </div>
+    </div>
+
+    <!-- RIGHT TOP: Status -->
+    <div class="card fade-up" id="status-card">
+      <div style="margin-bottom:1rem;">
+        <div id="status-pill" class="pill pill-amber" style="margin-bottom:0;">
+          <span class="dot dot-amber"></span>
+          <span id="status-txt">Generate a token to join</span>
+        </div>
+      </div>
+      <div class="info-2col">
+        <div class="info-cell">
+          <div class="info-cell-lbl">Now Serving</div>
+          <div class="info-cell-val" id="u-serving">—</div>
+          <div class="info-cell-sub">current</div>
+        </div>
+        <div class="info-cell">
+          <div class="info-cell-lbl">Est. Wait</div>
+          <div class="info-cell-val" id="u-wait">—</div>
+          <div class="info-cell-sub">minutes</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- RIGHT MIDDLE: Progress -->
+    <div class="pos-bar-card card fade-up fade-up-1">
+      <div class="pos-bar-top">
+        <span>Your queue position</span>
+        <span id="pos-txt" style="font-weight:500;color:var(--b700);">—</span>
+      </div>
+      <div class="progress-track"><div class="progress-fill" id="prog-fill" style="width:0%"></div></div>
+    </div>
+
+    <!-- RIGHT BOTTOM: Ticket prompt -->
+    <div id="ticket-prompt-card" class="ticket-prompt fade-up fade-up-2" onclick="openTicket()">
+      <div class="ticket-prompt-icon">
+        <svg viewBox="0 0 24 24"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+      </div>
+      <div>
+        <h4>Print / Save Ticket</h4>
+        <p>Your token with QR code as a printable pass</p>
+      </div>
+      <div class="ticket-prompt-arrow">›</div>
+    </div>
+
+  </div>
+
+  <!-- Live queue peek -->
+  <div style="margin-bottom:3rem;">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;">
+      <h3 style="color:var(--b900);">Live Queue</h3>
+      <a href="queue.html" class="btn btn-outline btn-sm">View full queue →</a>
+    </div>
+    <div id="mini-queue" style="display:flex;flex-direction:column;gap:6px;">
+      <div style="text-align:center;padding:2rem;color:var(--g400);font-size:14px;">Loading queue…</div>
+    </div>
+  </div>
+</div>
+
+<footer>
+  <div class="footer-inner">
+    <div><div class="footer-brand">Queue<em>Less</em></div><div class="footer-tagline">Skip the line, not your turn</div></div>
+    <div class="footer-links">
+      <a href="index.html" class="footer-link">Home</a>
+      <a href="user.html" class="footer-link">Join Queue</a>
+      <a href="queue.html" class="footer-link">Live Queue</a>
+      <a href="admin.html" class="footer-link">Admin</a>
+    </div>
+  </div>
+  <div class="footer-bottom">© 2025 QueueLess. All rights reserved.</div>
+</footer>
+
+<!-- TICKET MODAL -->
+<div class="modal-overlay" id="ticket-modal" onclick="closeTicket()">
+  <div class="ticket" onclick="event.stopPropagation()">
+    <div class="tkt-header">
+      <div class="tkt-brand"><strong>Queue</strong>Less</div>
+      <div class="tkt-big"><sup>#</sup><span id="tkt-num">0</span></div>
+      <div class="tkt-issued-lbl" id="tkt-issued">Issued —</div>
+    </div>
+    <div class="perf"></div>
+    <div class="tkt-body">
+      <div class="tkt-qr-wrap" id="tkt-qr"></div>
+      <div class="tkt-scan-lbl">Scan QR at counter for check-in</div>
+      <div class="tkt-rows">
+        <div class="tkt-row"><span class="tkt-k">Status</span><span class="tkt-v" id="tkt-status">—</span></div>
+        <div class="tkt-row"><span class="tkt-k">Now Serving</span><span class="tkt-v hi" id="tkt-serving">—</span></div>
+        <div class="tkt-row"><span class="tkt-k">Est. Wait</span><span class="tkt-v" id="tkt-wait">—</span></div>
+        <div class="tkt-row"><span class="tkt-k">Position</span><span class="tkt-v" id="tkt-pos">—</span></div>
+      </div>
+      <div class="tkt-foot">QueueLess · Token #<span id="tkt-foot">0</span> · Valid for this session</div>
+      <div class="tkt-actions">
+        <button class="tkt-btn tkt-btn-out" onclick="closeTicket()">Close</button>
+        <button class="tkt-btn tkt-btn-sol" onclick="window.print()">🖨 Print / Save PDF</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="state.js"></script>
+<script>
+let myToken = null;
+let myTime  = null;
+
+// Restore token from sessionStorage (same tab session)
+function restoreSession() {
+  try {
+    const t = sessionStorage.getItem('ql_myToken');
+    const tm = sessionStorage.getItem('ql_myTime');
+    if (t) { myToken = parseInt(t); myTime = tm; }
+  } catch(e) {}
+}
+
+function saveSession() {
+  try {
+    sessionStorage.setItem('ql_myToken', myToken);
+    sessionStorage.setItem('ql_myTime',  myTime);
+  } catch(e) {}
+}
+
+function generateToken() {
+  const s = getState();
+  const token = s.nextTok++;
+  const t = nowTime();
+  s.queue.push({ token, name: 'You', time: t, isUser: true });
+  if (!s.current) s.current = token;
+  saveState(s);
+
+  myToken = token;
+  myTime  = t;
+  saveSession();
+
+  document.getElementById('gen-btn').disabled = true;
+  document.getElementById('gen-btn').textContent = 'Token Generated ✓';
+  document.getElementById('no-token-msg').style.display = 'none';
+
+  const issued = document.getElementById('token-issued');
+  issued.classList.add('show');
+  document.getElementById('tok-num').textContent = token;
+  document.getElementById('tok-time').textContent = t;
+
+  setTimeout(() => {
+    buildQR(document.getElementById('tok-qr-box'), tokenQRText(token), 86);
+  }, 80);
+
+  refreshAll(s);
+}
+
+function openTicket() {
+  if (!myToken) return;
+  const s = getState();
+  const idx = s.queue.findIndex(q => q.token === myToken);
+  document.getElementById('tkt-num').textContent = myToken;
+  document.getElementById('tkt-foot').textContent = myToken;
+  document.getElementById('tkt-issued').textContent = 'Issued ' + (myTime || nowTime());
+  document.getElementById('tkt-serving').textContent = s.current ? '#' + s.current : '—';
+  document.getElementById('tkt-wait').textContent = idx >= 0 ? Math.max(0, idx * AVG_MINS) + ' min' : '0 min';
+  document.getElementById('tkt-pos').textContent = idx >= 0 ? (idx+1) + ' of ' + s.queue.length : 'Served';
+  document.getElementById('tkt-status').textContent =
+    s.current === myToken ? 'Now Serving!' : idx >= 0 ? 'Waiting' : 'Served ✓';
+  buildQR(document.getElementById('tkt-qr'), tokenQRText(myToken), 152);
+  document.getElementById('ticket-modal').classList.add('open');
+}
+function closeTicket() { document.getElementById('ticket-modal').classList.remove('open'); }
+
+function refreshAll(s) {
+  s = s || getState();
+  refreshStatus(s);
+  refreshMiniQueue(s);
+}
+
+function refreshStatus(s) {
+  const servEl  = document.getElementById('u-serving');
+  const waitEl  = document.getElementById('u-wait');
+  const posEl   = document.getElementById('pos-txt');
+  const fillEl  = document.getElementById('prog-fill');
+  const pillEl  = document.getElementById('status-pill');
+
+  servEl.textContent = s.current ? '#' + s.current : '—';
+
+  if (!myToken) {
+    waitEl.textContent = '—';
+    posEl.textContent  = '—';
+    return;
+  }
+
+  const idx = s.queue.findIndex(q => q.token === myToken);
+  if (idx === -1) {
+    pillEl.className = 'pill pill-green';
+    pillEl.innerHTML = '<span class="dot dot-green"></span><span>Served — thank you!</span>';
+    waitEl.textContent = '0';
+    posEl.textContent  = 'Served ✓';
+    fillEl.style.width = '100%';
+    return;
+  }
+  const pos   = idx + 1;
+  const total = s.queue.length;
+  waitEl.textContent = Math.max(0, (pos - 1) * AVG_MINS);
+  posEl.textContent  = pos + ' of ' + total;
+  const pct = s.served + total > 0 ? Math.round(s.served / (s.served + total) * 100) : 0;
+  fillEl.style.width = pct + '%';
+
+  if (s.current === myToken) {
+    pillEl.className = 'pill pill-green';
+    pillEl.innerHTML = '<span class="dot dot-green"></span><span>Now serving you! Head to the counter.</span>';
+  } else {
+    pillEl.className = 'pill pill-amber';
+    pillEl.innerHTML = '<span class="dot dot-amber"></span><span>Waiting · Position ' + pos + ' of ' + total + '</span>';
+  }
+}
+
+function refreshMiniQueue(s) {
+  const el = document.getElementById('mini-queue');
+  if (!s.queue.length) {
+    el.innerHTML = '<div style="text-align:center;padding:2rem;color:var(--g400);font-size:14px;">Queue is clear — no one waiting.</div>';
+    return;
+  }
+  // Show first 5
+  const visible = s.queue.slice(0, 5);
+  el.innerHTML = visible.map((item, i) => {
+    const cur = item.token === s.current;
+    return `<div class="queue-row ${cur ? 'current' : ''}">
+      <div class="qr-token-badge">#${item.token}</div>
+      <div style="flex:1;">
+        <div class="qr-name">${item.isUser ? 'You' : item.name}</div>
+        <div class="qr-meta">Joined ${item.time} · ~${i * AVG_MINS} min wait</div>
+      </div>
+      <span class="tag ${cur ? 'tag-serving' : 'tag-waiting'}">${cur ? 'Serving' : 'Waiting'}</span>
+    </div>`;
+  }).join('') + (s.queue.length > 5 ? `<div style="text-align:center;font-size:13px;color:var(--g400);padding:0.75rem 0;">+${s.queue.length - 5} more · <a href="queue.html" style="color:var(--b500);">View all →</a></div>` : '');
+}
+
+restoreSession();
+if (myToken) {
+  document.getElementById('gen-btn').disabled = true;
+  document.getElementById('gen-btn').textContent = 'Token Generated ✓';
+  document.getElementById('no-token-msg').style.display = 'none';
+  const issued = document.getElementById('token-issued');
+  issued.classList.add('show');
+  document.getElementById('tok-num').textContent = myToken;
+  document.getElementById('tok-time').textContent = myTime || '—';
+  setTimeout(() => buildQR(document.getElementById('tok-qr-box'), tokenQRText(myToken), 86), 80);
+}
+
+refreshAll();
+onStateChange(s => refreshAll(s));
+// Auto-refresh every 5s
+setInterval(() => refreshAll(), 5000);
+</script>
+</body>
+</html>

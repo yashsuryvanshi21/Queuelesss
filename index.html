@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>QueueLess – Virtual Queue Management</title>
+<link rel="stylesheet" href="style.css" />
+<style>
+.hero {
+  min-height: calc(100vh - 62px);
+  background: linear-gradient(160deg, #042C53 0%, #0C447C 50%, #185FA5 100%);
+  display: flex; align-items: center; justify-content: center;
+  text-align: center; padding: 4rem 1.5rem; position: relative; overflow: hidden;
+}
+.hero::before { content:''; position:absolute; inset:0; background:radial-gradient(ellipse 70% 55% at 50% 0%,rgba(55,138,221,0.28) 0%,transparent 68%); pointer-events:none; }
+.hero-grid { position:absolute; inset:0; background-image:linear-gradient(rgba(255,255,255,0.035) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,0.035) 1px,transparent 1px); background-size:52px 52px; pointer-events:none; }
+.hero-circle { position:absolute; border-radius:50%; background:rgba(255,255,255,0.04); pointer-events:none; }
+.hc1 { width:420px; height:420px; right:-100px; top:-80px; }
+.hc2 { width:260px; height:260px; left:-60px; bottom:-40px; }
+.hc3 { width:120px; height:120px; right:18%; bottom:20%; background:rgba(55,138,221,0.1); }
+.hero-inner { position:relative; max-width:700px; }
+.hero-badge { display:inline-flex; align-items:center; gap:8px; background:rgba(255,255,255,0.1); border:0.5px solid rgba(255,255,255,0.22); border-radius:100px; padding:6px 18px 6px 8px; margin-bottom:2.5rem; }
+.hero-badge-dot { width:30px; height:30px; background:#378ADD; border-radius:50%; display:flex; align-items:center; justify-content:center; font-family:var(--fd); font-size:13px; font-weight:800; color:#fff; }
+.hero-badge span { font-family:var(--fd); font-size:13px; font-weight:700; color:rgba(255,255,255,0.88); letter-spacing:0.05em; text-transform:uppercase; }
+.hero h1 { color:#fff; margin-bottom:1.25rem; }
+.hero h1 em { color:var(--b200); font-style:normal; }
+.hero-sub { font-size:1.1rem; font-weight:300; color:rgba(255,255,255,0.58); letter-spacing:0.08em; text-transform:uppercase; margin-bottom:2.75rem; }
+.hero-btns { display:flex; gap:12px; justify-content:center; flex-wrap:wrap; }
+.hero-stats { display:flex; gap:3rem; justify-content:center; margin-top:4rem; padding-top:2.5rem; border-top:0.5px solid rgba(255,255,255,0.1); position:relative; }
+.hs-num { font-family:var(--fd); font-size:2rem; font-weight:800; color:#fff; }
+.hs-lbl { font-size:11px; color:rgba(255,255,255,0.4); text-transform:uppercase; letter-spacing:0.1em; margin-top:3px; }
+
+.features-strip { background:var(--white); border-top:0.5px solid var(--g200); border-bottom:0.5px solid var(--g200); }
+.features-inner { display:flex; gap:2.5rem; flex-wrap:wrap; padding:2rem 0; justify-content:center; }
+.feature-item { display:flex; align-items:center; gap:10px; }
+.feature-icon { width:36px; height:36px; background:var(--b50); border-radius:9px; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+.feature-icon svg { width:18px; height:18px; stroke:var(--b700); fill:none; stroke-width:2; stroke-linecap:round; stroke-linejoin:round; }
+.feature-text { font-size:14px; font-weight:500; color:var(--b900); }
+
+.steps-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(210px,1fr)); gap:1.5rem; margin-top:3rem; }
+.step-num { width:44px; height:44px; background:var(--b50); border-radius:12px; display:flex; align-items:center; justify-content:center; font-family:var(--fd); font-size:18px; font-weight:800; color:var(--b700); margin-bottom:1rem; }
+.step-card h3 { color:var(--b900); margin-bottom:8px; font-size:1.1rem; }
+.step-card p { font-size:14px; line-height:1.65; }
+
+.cta-section { background:linear-gradient(135deg,var(--b900) 0%,var(--b700) 100%); border-radius:var(--radius-xl); padding:3.5rem 2rem; text-align:center; margin-bottom:5rem; position:relative; overflow:hidden; }
+.cta-section::before { content:''; position:absolute; right:-60px; top:-60px; width:250px; height:250px; background:rgba(255,255,255,0.04); border-radius:50%; }
+.cta-section h2 { color:#fff; margin-bottom:0.75rem; position:relative; }
+.cta-section p  { color:rgba(255,255,255,0.55); margin-bottom:2rem; font-size:15px; position:relative; }
+</style>
+</head>
+<body>
+
+<nav class="topnav">
+  <a href="index.html" class="nav-logo">Queue<em>Less</em></a>
+  <div class="nav-links">
+    <a href="index.html" class="nav-link active">Home</a>
+    <a href="queue.html" class="nav-link">Live Queue</a>
+    <a href="admin.html" class="nav-link">Admin</a>
+  </div>
+  <a href="user.html" class="nav-cta">Join Queue →</a>
+</nav>
+
+<section class="hero">
+  <div class="hero-grid"></div>
+  <div class="hero-circle hc1"></div>
+  <div class="hero-circle hc2"></div>
+  <div class="hero-circle hc3"></div>
+  <div class="hero-inner">
+    <div class="hero-badge fade-up">
+      <div class="hero-badge-dot">Q</div>
+      <span>QueueLess</span>
+    </div>
+    <h1 class="fade-up fade-up-1">Queue<em>Less</em><br>Virtual Queue System</h1>
+    <p class="hero-sub fade-up fade-up-2">Skip the line, not your turn</p>
+    <div class="hero-btns fade-up fade-up-3">
+      <a href="user.html" class="btn btn-white">Get My Token</a>
+      <a href="queue.html" class="btn btn-ghost">Live Queue</a>
+    </div>
+    <div class="hero-stats fade-up fade-up-4">
+      <div><div class="hs-num" id="s-served">0</div><div class="hs-lbl">Served Today</div></div>
+      <div><div class="hs-num" id="s-active">0</div><div class="hs-lbl">In Queue</div></div>
+      <div><div class="hs-num" id="s-wait">0m</div><div class="hs-lbl">Avg Wait</div></div>
+    </div>
+  </div>
+</section>
+
+<div class="features-strip">
+  <div class="container">
+    <div class="features-inner">
+      <div class="feature-item">
+        <div class="feature-icon"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><path d="M14 14h.01M17 14h.01M20 14h.01M14 17h.01M17 17h.01M20 17h.01M14 20h.01M17 20h.01M20 20h.01"/></svg></div>
+        <span class="feature-text">Unique QR per token</span>
+      </div>
+      <div class="feature-item">
+        <div class="feature-icon"><svg viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg></div>
+        <span class="feature-text">Live queue display</span>
+      </div>
+      <div class="feature-item">
+        <div class="feature-icon"><svg viewBox="0 0 24 24"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg></div>
+        <span class="feature-text">Printable ticket</span>
+      </div>
+      <div class="feature-item">
+        <div class="feature-icon"><svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg></div>
+        <span class="feature-text">Admin dashboard</span>
+      </div>
+      <div class="feature-item">
+        <div class="feature-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div>
+        <span class="feature-text">Real-time wait estimate</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<section class="section container">
+  <div style="text-align:center;margin-bottom:0.75rem;"><span class="pill pill-blue">How it works</span></div>
+  <h2 style="text-align:center;color:var(--b900);">Three steps to skip the wait</h2>
+  <div class="steps-grid">
+    <div class="step-card card fade-up">
+      <div class="step-num">1</div>
+      <h3>Get your token</h3>
+      <p>Visit the Join Queue page and tap "Generate Token" to get a unique numbered token with a QR code instantly.</p>
+    </div>
+    <div class="step-card card fade-up fade-up-1">
+      <div class="step-num">2</div>
+      <h3>Track your position</h3>
+      <p>See your position, current serving number, and estimated wait time — all updating live on any device.</p>
+    </div>
+    <div class="step-card card fade-up fade-up-2">
+      <div class="step-num">3</div>
+      <h3>Show up when called</h3>
+      <p>When your number comes up, present your QR code or printable ticket at the counter for instant check-in.</p>
+    </div>
+    <div class="step-card card fade-up fade-up-3">
+      <div class="step-num">4</div>
+      <h3>Admin manages flow</h3>
+      <p>Staff use the Admin Dashboard to call next tokens, add walk-ins, and keep the queue moving smoothly.</p>
+    </div>
+  </div>
+</section>
+
+<div class="container">
+  <div class="cta-section fade-up">
+    <h2>Ready to skip the wait?</h2>
+    <p>Get your virtual token in seconds — no app download needed.</p>
+    <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap;position:relative;">
+      <a href="user.html" class="btn btn-white">Get My Token</a>
+      <a href="queue.html" class="btn btn-ghost">View Live Queue</a>
+    </div>
+  </div>
+</div>
+
+<footer>
+  <div class="footer-inner">
+    <div>
+      <div class="footer-brand">Queue<em>Less</em></div>
+      <div class="footer-tagline">Skip the line, not your turn</div>
+    </div>
+    <div class="footer-links">
+      <a href="index.html" class="footer-link">Home</a>
+      <a href="user.html" class="footer-link">Join Queue</a>
+      <a href="queue.html" class="footer-link">Live Queue</a>
+      <a href="admin.html" class="footer-link">Admin</a>
+    </div>
+  </div>
+  <div class="footer-bottom">© 2025 QueueLess. All rights reserved.</div>
+</footer>
+
+<script src="state.js"></script>
+<script>
+  function updateStats() {
+    const s = getState();
+    document.getElementById('s-served').textContent = s.served;
+    document.getElementById('s-active').textContent = s.queue.length;
+    document.getElementById('s-wait').textContent = Math.max(0, s.queue.length * AVG_MINS) + 'm';
+  }
+  updateStats();
+  onStateChange(updateStats);
+</script>
+</body>
+</html>
